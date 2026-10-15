@@ -1,21 +1,22 @@
-# 智盛杯 三套题库 · 模拟考试
+# 智盛杯 题库 · 模拟考试
 
 在线地址：**https://link-keng.github.io/zsb-exam/**
 
 ## 题库
 
-来源为《题库 · 周一周二周三三套》（DOCX / PDF），共 **300 题**：
+来源为《题库 · 周一周二周三周四四套》（PDF），共 **400 题**：
 
 | 套别 | 单选题 | 多选题 | 判断题 | 合计 |
 |---|---|---|---|---|
 | 周一 | 40 | 40 | 20 | 100 |
 | 周二 | 40 | 40 | 20 | 100 |
 | 周三 | 40 | 40 | 20 | 100 |
+| 周四 | 40 | 40 | 20 | 100 |
 
 ## 卷型
 
-- **综合模拟卷**：从全部 300 题中随机抽取 40 单选 + 40 多选 + 20 判断，题目顺序打乱，每次进入重新抽题。
-- **模考卷一 / 二 / 三**：对应周一 / 周二 / 周三当天全部 100 题，顺序打乱，保证当天题库全覆盖。
+- **综合模拟卷**：从全部 400 题中随机抽取 40 单选 + 40 多选 + 20 判断，题目顺序打乱，每次进入重新抽题。
+- **模考卷一 / 二 / 三 / 四**：对应周一 / 周二 / 周三 / 周四当天全部 100 题，顺序打乱，保证当天题库全覆盖。
 
 ## 判分规则
 
@@ -32,7 +33,7 @@
 index.html       首页（选卷 + 历史成绩）
 exam.html        答题 / 成绩回顾页（?paper=all|mon|tue|wed）
 css/style.css    样式
-js/data.js       题库数据（300 题，由 tools/build_data.py 生成）
+js/data.js       题库数据（400 题，由 tools/build_data.py 生成）
 js/core.js       抽卷与判分核心逻辑（浏览器 / node 共用）
 js/app.js        页面交互
 tools/           题库提取与校验脚本
@@ -42,7 +43,11 @@ tools/           题库提取与校验脚本
 
 ## 更新题库
 
-1. `python tools/dump_docx.py <题库.docx> docx_dump.txt` 提取文本
-2. `python tools/parse_questions.py docx_dump.txt questions.json` 解析并校验
+PDF 来源：
+
+1. `python tools/dump_pdf.py <题库.pdf> pdf_dump.txt` 提取文本（PyMuPDF）
+2. `python tools/parse_pdf.py pdf_dump.txt questions.json` 解析并校验（题干折行自动拼接）
 3. `python tools/build_data.py questions.json js/data.js` 生成站点数据
 4. `node tools/test_core.js` 跑抽卷 / 判分单元测试
+
+DOCX 来源可用 `tools/dump_docx.py` + `tools/parse_questions.py`（需 python-docx）。

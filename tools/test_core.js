@@ -13,10 +13,10 @@ function ok(cond, msg) {
 }
 
 console.log("[data]");
-ok(QUESTIONS.length === 300, "300 questions total");
+ok(QUESTIONS.length === 400, "400 questions total");
 const bySet = {};
 QUESTIONS.forEach(q => { bySet[q.set] = bySet[q.set] || {}; (bySet[q.set][q.type] = bySet[q.set][q.type] || []).push(q); });
-["周一", "周二", "周三"].forEach(s => {
+["周一", "周二", "周三", "周四"].forEach(s => {
   ok(bySet[s].single.length === 40, s + " single 40");
   ok(bySet[s].multi.length === 40, s + " multi 40");
   ok(bySet[s].judge.length === 20, s + " judge 20");
@@ -32,7 +32,7 @@ all.sections.forEach(s => s.items.forEach(q => { if (allIds.has(q.id)) dupId++; 
 ok(allIds.size === 100 && dupId === 0, "100 unique ids");
 
 console.log("[buildPaper per day: covers all 100 of that day]");
-["mon", "tue", "wed"].forEach(m => {
+["mon", "tue", "wed", "thu"].forEach(m => {
   const p = Core.buildPaper(m, QUESTIONS);
   const got = [];
   p.sections.forEach(s => s.items.forEach(q => got.push(q.id)));

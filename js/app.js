@@ -74,7 +74,7 @@ function esc(s) {
     document.getElementById("paperTitle").textContent = state.paper.name;
     var intro = document.getElementById("paperIntro");
     if (mode === "all") {
-      intro.innerHTML = "<b>" + esc(state.paper.name) + "：</b>从全部 300 题中随机抽取 40 单选 + 40 多选 + 20 判断，共 100 题，顺序已打乱。答题过程中不显示对错，提交答卷后统一显示分数与答案。";
+      intro.innerHTML = "<b>" + esc(state.paper.name) + "：</b>从全部 400 题中随机抽取 40 单选 + 40 多选 + 20 判断，共 100 题，顺序已打乱。答题过程中不显示对错，提交答卷后统一显示分数与答案。";
     } else {
       intro.innerHTML = "<b>" + esc(state.paper.name) + "：</b>当天全部 100 题（40 单选 + 40 多选 + 20 判断），顺序已打乱。答题过程中不显示对错，提交答卷后统一显示分数与答案。";
     }

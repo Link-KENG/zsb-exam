@@ -14,12 +14,13 @@
     return a;
   }
 
-  var SETS = { mon: "周一", tue: "周二", wed: "周三" };
+  var SETS = { mon: "周一", tue: "周二", wed: "周三", thu: "周四" };
   var PAPER_NAMES = {
     all: "综合模拟卷",
     mon: "模考卷一（周一）",
     tue: "模考卷二（周二）",
     wed: "模考卷三（周三）",
+    thu: "模考卷四（周四）",
   };
   var SECTIONS = [
     { type: "single", title: "单选题", count: 40 },
