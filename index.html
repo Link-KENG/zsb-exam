@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>智盛杯 三套题库 · 模拟考试</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="wrap">
+    <div class="hero">
+      <h1>智盛杯 三套题库</h1>
+      <div class="sub">题库共 300 题 · 周一 / 周二 / 周三 各 100 题（40 单选 + 40 多选 + 20 判断）</div>
+    </div>
+
+    <div class="paper-grid" id="paperGrid">
+      <a class="paper-card" href="exam.html?paper=all">
+        <span class="tag">随机抽题 · 每次不同</span>
+        <h2>综合模拟卷</h2>
+        <p>从全部 300 题中随机抽取 40 单选 + 40 多选 + 20 判断，题目顺序打乱</p>
+      </a>
+      <a class="paper-card" href="exam.html?paper=mon">
+        <span class="tag">周一题库</span>
+        <h2>模考卷一</h2>
+        <p>周一全部 100 题，顺序打乱，覆盖当日完整题库</p>
+      </a>
+      <a class="paper-card" href="exam.html?paper=tue">
+        <span class="tag">周二题库</span>
+        <h2>模考卷二</h2>
+        <p>周二全部 100 题，顺序打乱，覆盖当日完整题库</p>
+      </a>
+      <a class="paper-card" href="exam.html?paper=wed">
+        <span class="tag">周三题库</span>
+        <h2>模考卷三</h2>
+        <p>周三全部 100 题，顺序打乱，覆盖当日完整题库</p>
+      </a>
+    </div>
+
+    <div class="rules">
+      <b>考试规则：</b>共 100 题，每题 1 分，满分 100 分；多选题<b>少选、错选、多选均不得分</b>；
+      答题过程中不显示对错，<b>提交答卷后</b>统一显示分数与答案解析。
+    </div>
+
+    <div class="history">
+      <div class="h-head">
+        <h2>历史成绩</h2>
+        <button class="clear" id="clearBtn" type="button">清空记录</button>
+      </div>
+      <div id="histList"></div>
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+  <script>
+    (function () {
+      var list = document.getElementById("histList");
+      var KEY = "zsb-exam-history";
+      function render() {
+        var hist = [];
+        try { hist = JSON.parse(localStorage.getItem(KEY) || "[]"); } catch (e) {}
+        if (!hist.length) {
+          list.innerHTML = '<div class="empty">暂无成绩记录，快去练一套吧</div>';
+          return;
+        }
+        list.innerHTML = hist.slice(0, 30).map(function (h) {
+          var cls = h.score < 60 ? "low" : (h.score >= 85 ? "high" : "");
+          var d = new Date(h.ts);
+          var time = (d.getMonth() + 1) + "-" + d.getDate() + " " +
+            String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+          return '<div class="hist-item">' +
+            '<div class="h-name">' + esc(h.name) + '</div>' +
+            '<div class="h-score ' + cls + '">' + h.score + ' 分</div>' +
+            '<div class="h-time">' + time + '</div>' +
+            '</div>';
+        }).join("");
+      }
+      document.getElementById("clearBtn").addEventListener("click", function () {
+        if (confirm("确定清空全部成绩记录？")) {
+          localStorage.removeItem(KEY);
+          render();
+        }
+      });
+      render();
+    })();
+  </script>
+</body>
+</html>
