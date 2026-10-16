@@ -14,6 +14,7 @@ function esc(s) {
 
   var STATE_KEY = "zsb-exam-state";
   var HIST_KEY = "zsb-exam-history";
+  var REPORTS_KEY = "zsb-exam-reports";
   var WRONGS_KEY = "zsb-exam-wrongs";
 
   var params = new URLSearchParams(location.search);
@@ -190,7 +191,9 @@ function esc(s) {
     }
     state.submitted = true;
     save();
-    pushHistory();
+    var ts = Date.now();
+    pushHistory(ts);
+    saveReport(ts);
     renderReview();
     window.scrollTo(0, 0);
   });
@@ -209,7 +212,7 @@ function esc(s) {
     } catch (e) {}
   }
 
-  function pushHistory() {
+  function pushHistory(ts) {
     try {
       var hist = JSON.parse(localStorage.getItem(HIST_KEY) || "[]");
       hist.unshift({
@@ -217,9 +220,29 @@ function esc(s) {
         name: state.paper.name,
         score: state.result.total,
         total: totalCount(),
-        ts: Date.now(),
+        ts: ts,
       });
       localStorage.setItem(HIST_KEY, JSON.stringify(hist.slice(0, 30)));
+    } catch (e) {}
+  }
+
+  /* 答卷完整存档（题目 id + 作答 + 判分），供首页历史成绩点开回顾；题目详情回顾页从 data.js 现查，存档很小 */
+  function saveReport(ts) {
+    try {
+      var reports = JSON.parse(localStorage.getItem(REPORTS_KEY) || "[]");
+      reports.unshift({
+        ts: ts,
+        mode: state.mode,
+        name: state.paper.name,
+        score: state.result.total,
+        sections: state.paper.sections.map(function (sec) {
+          return { type: sec.type, ids: sec.items.map(function (q) { return q.id; }) };
+        }),
+        items: state.result.items.map(function (it) {
+          return { id: it.q.id, ua: it.userAnswer, ok: it.ok };
+        }),
+      });
+      localStorage.setItem(REPORTS_KEY, JSON.stringify(reports.slice(0, 30)));
     } catch (e) {}
   }
 

@@ -73,6 +73,7 @@
         <h2>历史成绩</h2>
         <button class="clear" id="clearBtn" type="button">清空记录</button>
       </div>
+      <div class="h-hint">点击带「查看回顾」的记录，可回看该卷完整作答、错题与正确答案</div>
       <div id="histList"></div>
     </div>
   </div>
@@ -82,9 +83,15 @@
     (function () {
       var list = document.getElementById("histList");
       var KEY = "zsb-exam-history";
+      var REP_KEY = "zsb-exam-reports";
       function render() {
         var hist = [];
         try { hist = JSON.parse(localStorage.getItem(KEY) || "[]"); } catch (e) {}
+        /* 有存档的历史记录可点开看回顾 */
+        var repMap = {};
+        try {
+          JSON.parse(localStorage.getItem(REP_KEY) || "[]").forEach(function (r) { repMap[r.ts] = true; });
+        } catch (e) {}
         if (!hist.length) {
           list.innerHTML = '<div class="empty">暂无成绩记录，快去练一套吧</div>';
           return;
@@ -94,16 +101,21 @@
           var d = new Date(h.ts);
           var time = (d.getMonth() + 1) + "-" + d.getDate() + " " +
             String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
-          return '<div class="hist-item">' +
-            '<div class="h-name">' + esc(h.name) + '</div>' +
+          var inner = '<div class="h-name">' + esc(h.name) + '</div>' +
             '<div class="h-score ' + cls + '">' + (h.score == null ? "已交卷" : h.score + " 分") + '</div>' +
-            '<div class="h-time">' + time + '</div>' +
-            '</div>';
+            '<div class="h-time">' + time + '</div>';
+          if (repMap[h.ts]) {
+            return '<a class="hist-item" href="review.html?ts=' + h.ts + '">' + inner +
+              '<span class="h-go">查看回顾 →</span></a>';
+          }
+          return '<div class="hist-item">' + inner +
+            '<span class="h-go muted">旧记录无存档</span></div>';
         }).join("");
       }
       document.getElementById("clearBtn").addEventListener("click", function () {
         if (confirm("确定清空全部成绩记录？")) {
           localStorage.removeItem(KEY);
+          localStorage.removeItem(REP_KEY);
           render();
         }
       });

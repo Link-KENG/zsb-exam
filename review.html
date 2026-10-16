@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>答卷回顾 · 智盛杯 题库</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="topbar">
+    <div class="topbar-inner">
+      <a class="home" href="index.html">首页</a>
+      <div class="title" id="barTitle">答卷回顾</div>
+      <div class="progress" id="barScore"></div>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div id="reviewWrap"></div>
+  </div>
+
+  <script src="js/data.js"></script>
+  <script src="js/data_noans.js"></script>
+  <script>
+    (function () {
+      var KEY = "zsb-exam-reports";
+      var wrap = document.getElementById("reviewWrap");
+
+      function esc(s) {
+        return String(s == null ? "" : s)
+          .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+      }
+
+      var TYPE_TITLE = { single: "单选题", multi: "多选题", judge: "判断题" };
+
+      /* 题库原始数据选项是 [k, t] 数组格式（抽卷后才是 {k,t} 对象），两种都兼容 */
+      function optK(o) { return Array.isArray(o) ? o[0] : o.k; }
+      function optT(o) { return Array.isArray(o) ? o[1] : o.t; }
+
+      function optText(q, k) {
+        for (var i = 0; i < q.options.length; i++) {
+          if (optK(q.options[i]) === k) return optT(q.options[i]);
+        }
+        return k;
+      }
+
+      /* 答案字母串转显示文本：判断题为 正确/错误，其余直接显示字母 */
+      function ansText(q, letters) {
+        if (!letters) return "";
+        if (q.type === "judge") {
+          return letters.split("").map(function (l) { return optText(q, l); }).join("、");
+        }
+        return letters;
+      }
+
+      function render() {
+        var ts = Number(new URLSearchParams(location.search).get("ts"));
+        var reports = [];
+        try { reports = JSON.parse(localStorage.getItem(KEY) || "[]"); } catch (e) {}
+        var rep = null;
+        for (var i = 0; i < reports.length; i++) {
+          if (reports[i].ts === ts) { rep = reports[i]; break; }
+        }
+
+        if (!rep || !rep.sections) {
+          wrap.innerHTML = '<div class="history"><div class="empty">未找到该次答卷存档。' +
+            '<br>只有更新后新提交的答卷才能回看，<a href="exam.html?paper=all" style="color:var(--accent)">去练一套 →</a></div></div>';
+          return;
+        }
+
+        /* 题目详情从题库现查，按存档的 id 顺序重建整卷（id 与 core.js 抽卷一致：type-set-num） */
+        var byId = {};
+        (window.QUESTIONS || []).concat(window.QUESTIONS_NOANS || []).forEach(function (q) {
+          byId[q.type + "-" + q.set + "-" + q.num] = q;
+        });
+        var sections = [];
+        rep.sections.forEach(function (sec) {
+          sections.push({
+            type: sec.type,
+            title: TYPE_TITLE[sec.type] || sec.type,
+            items: sec.ids.map(function (id) { return byId[id]; }).filter(Boolean),
+          });
+        });
+        var items = {};
+        (rep.items || []).forEach(function (it) { items[it.id] = it; });
+        var noa = rep.mode === "noa";
+        var total = 0;
+        sections.forEach(function (s) { total += s.items.length; });
+
+        document.getElementById("barTitle").textContent = rep.name;
+        document.getElementById("barScore").textContent = rep.score == null ? "已交卷" : rep.score + " 分";
+
+        var html = '<div class="result">';
+        html += '<div class="score-card">';
+        if (noa) {
+          html += '<div class="big" style="color:var(--muted)">已交卷</div>';
+          html += '<div class="of">' + esc(rep.name) + " · 本卷无标准答案，仅记录你的作答</div>";
+        } else {
+          var pct = rep.score / total;
+          var cls = pct >= 0.85 ? "high" : (pct >= 0.6 ? "" : "low");
+          html += '<div class="big ' + cls + '">' + rep.score + " 分</div>";
+          html += '<div class="of">' + esc(rep.name) + " · 满分 " + total + " 分</div>";
+          html += '<div class="secs">';
+          sections.forEach(function (sec) {
+            var got = 0;
+            sec.items.forEach(function (q) {
+              var it = items[q.type + "-" + q.set + "-" + q.num];
+              if (it && it.ok) got++;
+            });
+            html += '<span class="sec">' + esc(sec.title) + " " + got + "/" + sec.items.length + "</span>";
+          });
+          html += "</div>";
+        }
+        html += "</div>";
+        html += '<div class="result-actions">' +
+          '<a class="btn" href="exam.html?paper=' + esc(rep.mode) + '" style="text-decoration:none">再练一次</a>' +
+          '<a class="btn ghost" href="index.html" style="text-decoration:none">返回首页</a>' +
+          "</div></div>";
+
+        if (!noa) {
+          html += '<div class="filter-bar">' +
+            '<span class="fcnt" id="fcnt"></span>' +
+            '<button class="btn ghost sm" id="filterBtn" type="button">只看错题</button>' +
+            "</div>";
+        }
+
+        /* 逐题回顾 */
+        var idx = 0;
+        var wrongCnt = 0;
+        sections.forEach(function (sec) {
+          html += '<div class="section-title">' + esc(sec.title) +
+            '<span class="hint">' + (noa ? "作答记录" : "答案解析") + "</span></div>";
+          sec.items.forEach(function (q) {
+            idx++;
+            /* 原始题库题无 id 字段，按抽卷同款规则拼 id 再查作答记录 */
+            var qid = q.type + "-" + q.set + "-" + q.num;
+            var it = items[qid] || { ua: "", ok: null };
+            var badge = "", badgeCls = "", isWrong = false;
+            if (!noa) {
+              if (!it.ua) { badge = "未作答"; badgeCls = "skip"; isWrong = true; }
+              else if (it.ok) { badge = "答对"; badgeCls = "ok"; }
+              else { badge = "答错"; badgeCls = "no"; isWrong = true; }
+            }
+            if (isWrong) wrongCnt++;
+
+            html += '<div class="q-card review-q' + (it.ok ? " q-ok" : "") + '">';
+            html += '<div class="q-head"><span class="q-no">' + idx + "</span>";
+            html += '<div class="q-stem">' + esc(q.stem);
+            html += '<span class="q-src">' + esc(q.set) + " · " + esc(sec.title) + " #" + q.num + "</span>";
+            if (badge) html += '<span class="badge ' + badgeCls + '">' + badge + "</span>";
+            html += "</div></div>";
+
+            q.options.forEach(function (o) {
+              var k = optK(o), t = optT(o);
+              var isUser = (it.ua || "").indexOf(k) >= 0;
+              var cls = "opt locked";
+              var mark = "";
+              if (noa) {
+                if (isUser) cls += " sel";
+              } else {
+                var isCorrect = q.answer.indexOf(k) >= 0;
+                if (isCorrect) { cls += " correct"; mark = "✓"; }
+                else if (isUser) { cls += " wrong-pick"; mark = "✗"; }
+              }
+              html += '<div class="' + cls + '">' +
+                '<span class="opt-key">' + esc(k) + "</span>" +
+                '<span class="opt-text">' + esc(t) + "</span>" +
+                (mark ? '<span class="mark">' + mark + "</span>" : "") + "</div>";
+            });
+
+            var ua = it.ua ? ansText(q, it.ua) : "未作答";
+            html += '<div class="q-answer-line">你的答案：<span class="ua' + (it.ok ? " ok" : "") + '">' + esc(ua) + "</span>";
+            if (!noa) html += "　正确答案：<b>" + esc(ansText(q, q.answer)) + "</b>";
+            else html += "　（本卷无标准答案）";
+            html += "</div>";
+            html += "</div>";
+          });
+        });
+
+        wrap.innerHTML = html;
+
+        if (!noa) {
+          var fcnt = document.getElementById("fcnt");
+          var onlyWrong = false;
+          function updateFcnt() {
+            fcnt.textContent = onlyWrong ? "只看错题 · 显示 " + wrongCnt + " 题" : "全部 " + total + " 题 · 错题 " + wrongCnt + " 题";
+            document.getElementById("filterBtn").textContent = onlyWrong ? "查看全部" : "只看错题";
+          }
+          updateFcnt();
+          document.getElementById("filterBtn").addEventListener("click", function () {
+            onlyWrong = !onlyWrong;
+            wrap.classList.toggle("only-wrong", onlyWrong);
+            updateFcnt();
+          });
+        }
+      }
+
+      render();
+    })();
+  </script>
+</body>
+</html>

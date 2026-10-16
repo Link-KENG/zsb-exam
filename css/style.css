@@ -75,6 +75,11 @@ body {
 .hist-item .h-score.low { color: var(--red); }
 .hist-item .h-score.high { color: var(--green); }
 .hist-item .h-time { font-size: 12px; color: var(--muted); }
+.history .h-hint { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+a.hist-item { text-decoration: none; color: inherit; }
+a.hist-item:hover { border-color: var(--accent); }
+.hist-item .h-go { font-size: 12px; color: var(--accent); white-space: nowrap; }
+.hist-item .h-go.muted { color: var(--muted); }
 .history .empty { color: var(--muted); font-size: 13px; text-align: center; padding: 14px 0; }
 
 /* 答题区 */
@@ -126,6 +131,7 @@ body {
 }
 .btn:active { opacity: .85; }
 .btn.ghost { background: #e2e8f0; color: var(--text); }
+.btn.sm { padding: 7px 14px; font-size: 13px; }
 
 /* 结果页 */
 .result { padding: 22px 0 10px; }
@@ -147,6 +153,9 @@ body {
 
 /* 回顾 */
 .review-q { margin-bottom: 10px; }
+.filter-bar { display: flex; align-items: center; gap: 10px; margin: 14px 0 6px; }
+.filter-bar .fcnt { font-size: 13px; color: var(--muted); flex: 1; }
+#reviewWrap.only-wrong .q-ok { display: none; }
 .badge {
   display: inline-block; font-size: 12px; font-weight: 700; border-radius: 6px;
   padding: 1px 8px; margin-left: 6px; vertical-align: 2px;
