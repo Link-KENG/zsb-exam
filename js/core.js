@@ -14,13 +14,15 @@
     return a;
   }
 
-  var SETS = { mon: "周一", tue: "周二", wed: "周三", thu: "周四" };
+  var SETS = { mon: "周一", tue: "周二", wed: "周三", thu: "周四", fri: "周五" };
   var PAPER_NAMES = {
     all: "综合模拟卷",
     mon: "模考卷一（周一）",
     tue: "模考卷二（周二）",
     wed: "模考卷三（周三）",
     thu: "模考卷四（周四）",
+    fri: "模考卷五（周五）",
+    noa: "10.15 模考卷（无答案）",
   };
   var SECTIONS = [
     { type: "single", title: "单选题", count: 40 },
@@ -28,15 +30,19 @@
     { type: "judge", title: "判断题", count: 20 },
   ];
 
-  /* mode: 'all' | 'mon' | 'tue' | 'wed' */
-  function buildPaper(mode, questions) {
+  /* mode: 'all' | 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'noa'（无答案套卷）
+     noans 为无答案题库（可选），仅 mode='noa' 时使用 */
+  function buildPaper(mode, questions, noans) {
+    var src = mode === "noa" ? (noans || []) : questions;
     var pools = { single: [], multi: [], judge: [] };
-    questions.forEach(function (q) { pools[q.type].push(q); });
+    src.forEach(function (q) { pools[q.type].push(q); });
 
     var sections = SECTIONS.map(function (sec) {
       var pool;
       if (mode === "all") {
         pool = shuffle(pools[sec.type]).slice(0, sec.count);
+      } else if (mode === "noa") {
+        pool = shuffle(pools[sec.type]);
       } else {
         pool = shuffle(pools[sec.type].filter(function (q) { return q.set === SETS[mode]; }));
       }
@@ -76,5 +82,25 @@
     return { total: total, perSection: perSection, items: items };
   }
 
-  return { shuffle: shuffle, buildPaper: buildPaper, grade: grade, PAPER_NAMES: PAPER_NAMES, SECTIONS: SECTIONS, SETS: SETS };
+  /* 从判分结果收集错题（答错 + 未作答都算，用于错题本）。
+     返回 [{ q, ua, paper, ts }]，正确题目不收集。 */
+  function collectWrongs(result, paperName, now) {
+    var out = [];
+    result.items.forEach(function (it) {
+      if (!it.ok) {
+        out.push({ q: it.q, ua: it.userAnswer, paper: paperName, ts: now || Date.now() });
+      }
+    });
+    return out;
+  }
+
+  return {
+    shuffle: shuffle,
+    buildPaper: buildPaper,
+    grade: grade,
+    collectWrongs: collectWrongs,
+    PAPER_NAMES: PAPER_NAMES,
+    SECTIONS: SECTIONS,
+    SETS: SETS,
+  };
 });

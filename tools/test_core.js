@@ -2,7 +2,9 @@
 const assert = require("assert");
 global.window = {};
 require("../js/data.js");
+require("../js/data_noans.js");
 const QUESTIONS = global.window.QUESTIONS;
+const NOANS = global.window.QUESTIONS_NOANS;
 const Core = require("../js/core.js");
 
 let passed = 0;
@@ -13,10 +15,12 @@ function ok(cond, msg) {
 }
 
 console.log("[data]");
-ok(QUESTIONS.length === 400, "400 questions total");
+ok(QUESTIONS.length === 500, "500 questions with answers");
+ok(NOANS.length === 100, "100 questions without answers");
+ok(NOANS.every(q => q.answer === ""), "noa questions all have empty answer");
 const bySet = {};
 QUESTIONS.forEach(q => { bySet[q.set] = bySet[q.set] || {}; (bySet[q.set][q.type] = bySet[q.set][q.type] || []).push(q); });
-["周一", "周二", "周三", "周四"].forEach(s => {
+["周一", "周二", "周三", "周四", "周五"].forEach(s => {
   ok(bySet[s].single.length === 40, s + " single 40");
   ok(bySet[s].multi.length === 40, s + " multi 40");
   ok(bySet[s].judge.length === 20, s + " judge 20");
@@ -32,7 +36,7 @@ all.sections.forEach(s => s.items.forEach(q => { if (allIds.has(q.id)) dupId++; 
 ok(allIds.size === 100 && dupId === 0, "100 unique ids");
 
 console.log("[buildPaper per day: covers all 100 of that day]");
-["mon", "tue", "wed", "thu"].forEach(m => {
+["mon", "tue", "wed", "thu", "fri"].forEach(m => {
   const p = Core.buildPaper(m, QUESTIONS);
   const got = [];
   p.sections.forEach(s => s.items.forEach(q => got.push(q.id)));
@@ -41,6 +45,17 @@ console.log("[buildPaper per day: covers all 100 of that day]");
   const expect = QUESTIONS.filter(q => q.set === set).map(q => q.type + "-" + q.set + "-" + q.num).sort();
   ok(JSON.stringify(got.slice().sort()) === JSON.stringify(expect), m + " covers exactly all " + set + " questions");
 });
+
+console.log("[buildPaper noa: no-answer paper]");
+const noaPaper = Core.buildPaper("noa", QUESTIONS, NOANS);
+ok(noaPaper.name === "10.15 模考卷（无答案）", "noa paper name");
+const noaGot = [];
+noaPaper.sections.forEach(s => s.items.forEach(q => noaGot.push(q.id)));
+ok(noaGot.length === 100, "noa has 100 items");
+const noaExpect = NOANS.map(q => q.type + "-" + q.set + "-" + q.num).sort();
+ok(JSON.stringify(noaGot.slice().sort()) === JSON.stringify(noaExpect), "noa covers exactly all no-answer questions");
+ok(noaPaper.sections.every(s => s.items.every(q => q.answer === "")), "noa items keep empty answers");
+
 
 console.log("[grade]");
 // perfect score
@@ -85,5 +100,15 @@ const all2 = Core.buildPaper("all", QUESTIONS);
 const s1 = all.sections[0].items.map(q => q.id).join(",");
 const s2 = all2.sections[0].items.map(q => q.id).join(",");
 ok(s1 !== s2, "shuffling produces different order");
+
+console.log("[collectWrongs]");
+const mixed = Core.grade(all, perfect); // all correct
+ok(Core.collectWrongs(mixed, "x").length === 0, "no wrongs when all correct");
+const rMix = Core.grade(all, {}); // all unanswered
+ok(Core.collectWrongs(rMix, "x").length === 100, "all unanswered collected");
+const rMix2 = Core.grade(all, partial); // multi partial wrong + others correct
+const w2 = Core.collectWrongs(rMix2, "综合模拟卷");
+ok(w2.length === rMix2.items.filter(it => !it.ok).length, "only wrong items collected");
+ok(w2.every(w => w.paper === "综合模拟卷" && w.q && typeof w.ua === "string" && typeof w.ts === "number"), "wrong item shape ok");
 
 console.log("\nALL " + passed + " TESTS PASSED");

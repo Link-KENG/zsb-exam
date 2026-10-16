@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>错题本 · 智盛杯 题库</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="topbar">
+    <div class="topbar-inner">
+      <a class="home" href="index.html">首页</a>
+      <div class="title">错题本</div>
+      <div class="progress" id="wrongCount"></div>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="rules" style="margin-top:14px">
+      <b>错题本说明：</b>每次提交答卷后，<b>答错和未作答</b>的题目会自动收录到这里（同一道题保留最新一次记录），
+      关闭页面后也不会丢失，可以随时回来复习。做对一道题后再次提交，该题会自动从错题本移除。
+    </div>
+    <div id="wrongList"></div>
+  </div>
+
+  <script>
+    (function () {
+      var KEY = "zsb-exam-wrongs";
+      var list = document.getElementById("wrongList");
+
+      function esc(s) {
+        return String(s == null ? "" : s)
+          .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+      }
+
+      function optText(q, k) {
+        for (var i = 0; i < q.options.length; i++) {
+          if (q.options[i].k === k) return q.options[i].t;
+        }
+        return k;
+      }
+
+      /* 答案字母串转显示文本：判断题为 正确/错误，其余直接显示字母 */
+      function ansText(q, letters) {
+        if (!letters) return "未作答";
+        if (q.type === "judge") {
+          return letters.split("").map(function (l) { return optText(q, l); }).join("、");
+        }
+        return letters;
+      }
+
+      function render() {
+        var wrongs = [];
+        try { wrongs = JSON.parse(localStorage.getItem(KEY) || "[]"); } catch (e) {}
+        document.getElementById("wrongCount").textContent = wrongs.length ? wrongs.length + " 题" : "";
+
+        if (!wrongs.length) {
+          list.innerHTML = '<div class="history"><div class="empty">暂无错题，先去练一套吧 ✌️</div></div>';
+          return;
+        }
+
+        /* 新的在前 */
+        var html = "";
+        wrongs.slice().reverse().forEach(function (w) {
+          var q = w.q;
+          var d = new Date(w.ts);
+          var time = (d.getMonth() + 1) + "-" + d.getDate() + " " +
+            String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+          var typeName = q.type === "single" ? "单选题" : (q.type === "multi" ? "多选题" : "判断题");
+
+          html += '<div class="q-card review-q">';
+          html += '<div class="q-head"><span class="q-no">' + esc(q.set) + "</span>";
+          html += '<div class="q-stem">' + esc(q.stem);
+          html += '<span class="q-src">' + esc(typeName) + " #" + q.num + " · " + esc(w.paper) + " · " + time + "</span>";
+          html += '<span class="badge no">' + (w.ua ? "答错" : "未作答") + "</span></div></div>";
+
+          q.options.forEach(function (o) {
+            var isCorrect = q.answer.indexOf(o.k) >= 0;
+            var isUser = w.ua.indexOf(o.k) >= 0;
+            var cls = "opt locked";
+            var mark = "";
+            if (isCorrect) { cls += " correct"; mark = "✓"; }
+            else if (isUser) { cls += " wrong-pick"; mark = "✗"; }
+            html += '<div class="' + cls + '">' +
+              '<span class="opt-key">' + esc(o.k) + "</span>" +
+              '<span class="opt-text">' + esc(o.t) + "</span>" +
+              (mark ? '<span class="mark">' + mark + "</span>" : "") + "</div>";
+          });
+
+          html += '<div class="q-answer-line">你的答案：<span class="ua">' + esc(ansText(q, w.ua)) +
+            "</span>　正确答案：<b>" + esc(ansText(q, q.answer)) + "</b></div>";
+          html += "</div>";
+        });
+        list.innerHTML = html;
+      }
+
+      render();
+    })();
+  </script>
+</body>
+</html>

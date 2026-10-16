@@ -10,14 +10,19 @@
   <div class="wrap">
     <div class="hero">
       <h1>智盛杯 题库 · 模拟考试</h1>
-      <div class="sub">题库共 400 题 · 周一 / 周二 / 周三 / 周四 各 100 题（40 单选 + 40 多选 + 20 判断）</div>
+      <div class="sub">有答案题库 500 题 · 周一 ~ 周五 各 100 题（40 单选 + 40 多选 + 20 判断）</div>
     </div>
 
     <div class="paper-grid" id="paperGrid">
+      <a class="paper-card" href="wrong.html" style="border-color:#f59e0b">
+        <span class="tag" style="background:#fef3c7;color:#b45309">随时复习</span>
+        <h2>错题本</h2>
+        <p id="wrongCnt">已收藏 0 道错题，答错 / 未作答的题目都会自动收录</p>
+      </a>
       <a class="paper-card" href="exam.html?paper=all">
         <span class="tag">随机抽题 · 每次不同</span>
         <h2>综合模拟卷</h2>
-        <p>从全部 400 题中随机抽取 40 单选 + 40 多选 + 20 判断，题目顺序打乱</p>
+        <p>从全部 500 题中随机抽取 40 单选 + 40 多选 + 20 判断，题目顺序打乱</p>
       </a>
       <a class="paper-card" href="exam.html?paper=mon">
         <span class="tag">周一题库</span>
@@ -38,6 +43,23 @@
         <span class="tag">周四题库</span>
         <h2>模考卷四</h2>
         <p>周四全部 100 题，顺序打乱，覆盖当日完整题库</p>
+      </a>
+      <a class="paper-card" href="exam.html?paper=fri">
+        <span class="tag">周五题库</span>
+        <h2>模考卷五</h2>
+        <p>周五全部 100 题，顺序打乱，覆盖当日完整题库</p>
+      </a>
+    </div>
+
+    <div class="hero" style="padding-top:20px">
+      <h2 style="font-size:18px">无答案套卷</h2>
+      <div class="sub">原卷未附答案的套卷单独放在这里，可作答、可查看自己的答案记录，不判分</div>
+    </div>
+    <div class="paper-grid" style="padding-top:10px">
+      <a class="paper-card" href="exam.html?paper=noa" style="border-style:dashed">
+        <span class="tag" style="background:#e2e8f0;color:#475569">原卷未附答案</span>
+        <h2>10.15 模考卷</h2>
+        <p>共 100 题（40 单选 + 40 多选 + 20 判断），顺序打乱；提交后只显示作答记录</p>
       </a>
     </div>
 
@@ -68,13 +90,13 @@
           return;
         }
         list.innerHTML = hist.slice(0, 30).map(function (h) {
-          var cls = h.score < 60 ? "low" : (h.score >= 85 ? "high" : "");
+          var cls = h.score == null ? "" : (h.score < 60 ? "low" : (h.score >= 85 ? "high" : ""));
           var d = new Date(h.ts);
           var time = (d.getMonth() + 1) + "-" + d.getDate() + " " +
             String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
           return '<div class="hist-item">' +
             '<div class="h-name">' + esc(h.name) + '</div>' +
-            '<div class="h-score ' + cls + '">' + h.score + ' 分</div>' +
+            '<div class="h-score ' + cls + '">' + (h.score == null ? "已交卷" : h.score + " 分") + '</div>' +
             '<div class="h-time">' + time + '</div>' +
             '</div>';
         }).join("");
@@ -86,6 +108,12 @@
         }
       });
       render();
+
+      /* 错题本数量 */
+      try {
+        var wrongs = JSON.parse(localStorage.getItem("zsb-exam-wrongs") || "[]");
+        document.getElementById("wrongCnt").textContent = "已收藏 " + wrongs.length + " 道错题，答错 / 未作答的题目都会自动收录";
+      } catch (e) {}
     })();
   </script>
 </body>

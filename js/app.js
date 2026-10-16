@@ -14,6 +14,7 @@ function esc(s) {
 
   var STATE_KEY = "zsb-exam-state";
   var HIST_KEY = "zsb-exam-history";
+  var WRONGS_KEY = "zsb-exam-wrongs";
 
   var params = new URLSearchParams(location.search);
   var mode = params.get("paper") || "all";
@@ -31,7 +32,7 @@ function esc(s) {
     } catch (e) {}
     state = {
       mode: mode,
-      paper: Core.buildPaper(mode, window.QUESTIONS),
+      paper: Core.buildPaper(mode, window.QUESTIONS, window.QUESTIONS_NOANS),
       answers: {},
       submitted: false,
       result: null,
@@ -74,7 +75,9 @@ function esc(s) {
     document.getElementById("paperTitle").textContent = state.paper.name;
     var intro = document.getElementById("paperIntro");
     if (mode === "all") {
-      intro.innerHTML = "<b>" + esc(state.paper.name) + "：</b>从全部 400 题中随机抽取 40 单选 + 40 多选 + 20 判断，共 100 题，顺序已打乱。答题过程中不显示对错，提交答卷后统一显示分数与答案。";
+      intro.innerHTML = "<b>" + esc(state.paper.name) + "：</b>从全部 500 题中随机抽取 40 单选 + 40 多选 + 20 判断，共 100 题，顺序已打乱。答题过程中不显示对错，提交答卷后统一显示分数与答案。";
+    } else if (mode === "noa") {
+      intro.innerHTML = "<b>" + esc(state.paper.name) + "：</b>本卷为原卷未附答案的套卷，共 100 题，顺序已打乱。可正常作答，提交后只显示你的作答记录，<b>不判分、不计入错题本</b>。";
     } else {
       intro.innerHTML = "<b>" + esc(state.paper.name) + "：</b>当天全部 100 题（40 单选 + 40 多选 + 20 判断），顺序已打乱。答题过程中不显示对错，提交答卷后统一显示分数与答案。";
     }
@@ -169,13 +172,42 @@ function esc(s) {
     var left = total - answeredCount();
     if (left > 0 && !confirm("还有 " + left + " 题未作答，确定提交答卷吗？")) return;
 
-    state.result = Core.grade(state.paper, state.answers);
+    if (mode === "noa") {
+      /* 无答案卷：不判分，只记录作答 */
+      var items = [];
+      state.paper.sections.forEach(function (sec) {
+        sec.items.forEach(function (q) {
+          var ua = (state.answers[q.id] || "").split("")
+            .filter(function (c) { return c >= "A" && c <= "E"; })
+            .sort().join("");
+          items.push({ q: q, userAnswer: ua, ok: null });
+        });
+      });
+      state.result = { noa: true, total: null, perSection: {}, items: items };
+    } else {
+      state.result = Core.grade(state.paper, state.answers);
+      saveWrongs(state.result, state.paper.name);
+    }
     state.submitted = true;
     save();
     pushHistory();
     renderReview();
     window.scrollTo(0, 0);
   });
+
+  function saveWrongs(result, paperName) {
+    try {
+      var wrongs = JSON.parse(localStorage.getItem(WRONGS_KEY) || "[]");
+      var fresh = Core.collectWrongs(result, paperName);
+      /* 本卷出现的题先从错题本移除（做对即出本），再把本次答错/未答的题加回，保留最新记录 */
+      var inPaper = {};
+      state.paper.sections.forEach(function (sec) {
+        sec.items.forEach(function (q) { inPaper[q.id] = true; });
+      });
+      wrongs = wrongs.filter(function (w) { return !inPaper[w.q.id]; }).concat(fresh);
+      localStorage.setItem(WRONGS_KEY, JSON.stringify(wrongs.slice(-1000)));
+    } catch (e) {}
+  }
 
   function pushHistory() {
     try {
@@ -200,19 +232,26 @@ function esc(s) {
 
     var r = state.result;
     var total = totalCount();
-    var pct = r.total / total;
-    var cls = pct >= 0.85 ? "high" : (pct >= 0.6 ? "" : "low");
 
     var html = '<div class="result">';
-    html += '<div class="score-card">';
-    html += '<div class="big ' + cls + '">' + r.total + " 分</div>";
-    html += '<div class="of">' + esc(state.paper.name) + " · 满分 " + total + " 分</div>";
-    html += '<div class="secs">';
-    state.paper.sections.forEach(function (sec) {
-      var cnt = sec.items.length;
-      html += '<span class="sec">' + esc(sec.title) + " " + r.perSection[sec.type] + "/" + cnt + "</span>";
-    });
-    html += "</div></div>";
+    if (r.noa) {
+      html += '<div class="score-card">';
+      html += '<div class="big" style="color:var(--muted)">已交卷</div>';
+      html += '<div class="of">' + esc(state.paper.name) + " · 本卷无标准答案，仅记录你的作答</div>";
+      html += "</div>";
+    } else {
+      var pct = r.total / total;
+      var cls = pct >= 0.85 ? "high" : (pct >= 0.6 ? "" : "low");
+      html += '<div class="score-card">';
+      html += '<div class="big ' + cls + '">' + r.total + " 分</div>";
+      html += '<div class="of">' + esc(state.paper.name) + " · 满分 " + total + " 分</div>";
+      html += '<div class="secs">';
+      state.paper.sections.forEach(function (sec) {
+        var cnt = sec.items.length;
+        html += '<span class="sec">' + esc(sec.title) + " " + r.perSection[sec.type] + "/" + cnt + "</span>";
+      });
+      html += "</div></div>";
+    }
     html += '<div class="result-actions">';
     html += '<button class="btn" id="retakeBtn" type="button">再练一次</button>';
     html += '<a class="btn ghost" href="index.html" style="text-decoration:none">返回首页</a>';
@@ -221,31 +260,39 @@ function esc(s) {
     /* 逐题回顾 */
     var idx = 0;
     state.paper.sections.forEach(function (sec) {
-      html += '<div class="section-title">' + esc(sec.title) + '<span class="hint">答案解析</span></div>';
+      html += '<div class="section-title">' + esc(sec.title) +
+        '<span class="hint">' + (r.noa ? "作答记录" : "答案解析") + "</span></div>";
       sec.items.forEach(function (q) {
         idx++;
         var it = null;
         for (var i = 0; i < r.items.length; i++) {
           if (r.items[i].q.id === q.id) { it = r.items[i]; break; }
         }
-        var badge, badgeCls;
-        if (!it.userAnswer) { badge = "未作答"; badgeCls = "skip"; }
-        else if (it.ok) { badge = "答对"; badgeCls = "ok"; }
-        else { badge = "答错"; badgeCls = "no"; }
+        var badge = "", badgeCls = "";
+        if (!r.noa) {
+          if (!it.userAnswer) { badge = "未作答"; badgeCls = "skip"; }
+          else if (it.ok) { badge = "答对"; badgeCls = "ok"; }
+          else { badge = "答错"; badgeCls = "no"; }
+        }
 
         html += '<div class="q-card review-q">';
         html += '<div class="q-head"><span class="q-no">' + idx + "</span>";
         html += '<div class="q-stem">' + esc(q.stem);
         html += '<span class="q-src">' + esc(q.set) + " · " + esc(sec.title) + " #" + q.num + "</span>";
-        html += '<span class="badge ' + badgeCls + '">' + badge + "</span></div></div>";
+        if (badge) html += '<span class="badge ' + badgeCls + '">' + badge + "</span>";
+        html += "</div></div>";
 
         q.options.forEach(function (o) {
-          var isCorrect = q.answer.indexOf(o.k) >= 0;
           var isUser = it.userAnswer.indexOf(o.k) >= 0;
           var cls = "opt locked";
           var mark = "";
-          if (isCorrect) { cls += " correct"; mark = "✓"; }
-          else if (isUser) { cls += " wrong-pick"; mark = "✗"; }
+          if (r.noa) {
+            if (isUser) cls += " sel";
+          } else {
+            var isCorrect = q.answer.indexOf(o.k) >= 0;
+            if (isCorrect) { cls += " correct"; mark = "✓"; }
+            else if (isUser) { cls += " wrong-pick"; mark = "✗"; }
+          }
           html += '<div class="' + cls + '">' +
             '<span class="opt-key">' + esc(o.k) + "</span>" +
             '<span class="opt-text">' + esc(o.t) + "</span>" +
@@ -253,7 +300,10 @@ function esc(s) {
         });
 
         var ua = it.userAnswer ? ansText(q, it.userAnswer) : "未作答";
-        html += '<div class="q-answer-line">你的答案：<span class="ua' + (it.ok ? " ok" : "") + '">' + esc(ua) + "</span>　正确答案：<b>" + esc(ansText(q, q.answer)) + "</b></div>";
+        html += '<div class="q-answer-line">你的答案：<span class="ua' + (it.ok ? " ok" : "") + '">' + esc(ua) + "</span>";
+        if (!r.noa) html += "　正确答案：<b>" + esc(ansText(q, q.answer)) + "</b>";
+        else html += "　（本卷无标准答案）";
+        html += "</div>";
         html += "</div>";
       });
     });
@@ -262,7 +312,7 @@ function esc(s) {
     document.getElementById("retakeBtn").addEventListener("click", function () {
       state = {
         mode: mode,
-        paper: Core.buildPaper(mode, window.QUESTIONS),
+        paper: Core.buildPaper(mode, window.QUESTIONS, window.QUESTIONS_NOANS),
         answers: {},
         submitted: false,
         result: null,
